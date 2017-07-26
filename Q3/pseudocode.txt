@@ -1,0 +1,52 @@
+int array
+int arrpos = 0; //position in array
+int epos, opos; //helper
+int numprinted;
+
+environment evens_env, odds_env;
+
+evens(){
+
+  while(numprinted < 11){
+    if(array[arrpos] % 2 == 0){
+      print array[arrpos]
+      arrpos++
+    }
+    else{
+        epos = setenv(evens_env)
+
+        if(epos == 0)
+          odds()
+        else if(epos == -1)
+          exit(0)
+    }
+
+  }
+
+}
+
+odds(){
+
+  while(numprinted < 11){
+    if(array[arrpos] % 2 != 0){
+      print array[arrpos]
+      arrpos++
+    }
+    else{
+      opos = setenv(odd_env)
+
+      if(opos == 0)
+        longjmp(evens_env,1)
+      else
+        exit(0)
+    }
+  }
+
+}
+
+main{
+
+  array[] = userinput
+  evens();
+  exit(0)
+}
