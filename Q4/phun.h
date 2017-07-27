@@ -1,8 +1,8 @@
-/* 
+/*
  * Phun Interpreter
  * Tami Meredith, June 2017
  */
- 
+
 /*
  * Constants
  */
@@ -19,7 +19,7 @@ typedef enum { tBEGIN, tEND, tQUOTE, tINT, tIDENT, tSTRING, tEOF } tokentype;
 typedef struct {
     tokentype type;
     int       iVal;
-    char     *sVal;    
+    char     *sVal;
 } token;
 
 /*
@@ -41,7 +41,7 @@ typedef struct exprList {
 
 /*
  * Types for super simple symbol tables
- * - An element in list of symbols 
+ * - An element in list of symbols
  */
 typedef struct symbolS {
   char *name;
@@ -77,6 +77,8 @@ exprs *parse();
 exprs *parseFileList (token t);
 exprs *parseExprList (token t);
 expr  *parseExpr (token t);
+
+expr *doLambda (exprs *ls);
 
 void listPrint(exprs *l);
 void exprPrint(expr *e);

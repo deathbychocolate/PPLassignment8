@@ -1,9 +1,9 @@
-/* 
+/*
  * Phun Interpreter
  * Evaluator Code
  * Tami Meredith, July 2017
  */
- 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -34,8 +34,8 @@ expr *doCar(exprs *ls) {
     if (ls == NULL)
         fatalError("Missing argument for car");
     head = eval(ls->e);
-    if (head->type != eExprList) 
-        fatalError("car not used on a list");      
+    if (head->type != eExprList)
+        fatalError("car not used on a list");
     return (head->eVal->e);
 }
 
@@ -44,8 +44,8 @@ expr *doCdr(exprs *ls) {
     if (ls == NULL)
         fatalError("Missing argument for cdr");
     tail = eval(ls->e);
-    if (tail->type != eExprList) 
-        fatalError("cdr not used on a list");      
+    if (tail->type != eExprList)
+        fatalError("cdr not used on a list");
     return (newListExpr(tail->eVal->n));
 }
 
@@ -58,10 +58,10 @@ expr *doCons(exprs *ls) {
     if (ls == NULL)
         fatalError("Missing second value for cons");
     tail = eval(ls->e);
-    if (tail->type != eExprList) 
+    if (tail->type != eExprList)
         fatalError("Second value for cons is not a list");
-    
-    return (newListExpr (newExprList (head, tail->eVal))); 
+
+    return (newListExpr (newExprList (head, tail->eVal)));
 }
 
 expr *doList(exprs *ls) {
@@ -86,6 +86,14 @@ expr *doDefine(exprs *ls) {
     if (name->type != eIdent)
         fatalError("Missing identifier in a definition");
     ls = ls->n;
+    if (!strcasecmp (ls->e->sVal,"lambda")){
+        //user is defining a function
+        //add function to sym tab and get out
+        ls = ls->n;
+        val = doLambda(ls); //val contains the function def
+        bind(name->sVal, val);
+        return(NULL);
+    }
     if (ls == NULL)
         fatalError("Definition missing a value");
     val = ls->e;
@@ -111,15 +119,15 @@ expr *doBinaryOp(int op, exprs *ls) {
     if (ls == NULL)
         fatalError("Missing values for binary operator");
     val1 = eval(ls->e);
-    if (val1->type != eInt) 
-        fatalError("First value for binary operation is not an int");      
+    if (val1->type != eInt)
+        fatalError("First value for binary operation is not an int");
     i = val1->iVal;
 getAnother:
     ls = ls->n;
     if (ls == NULL)
         fatalError("Missing second+ value for binary operation");
     val2 = eval(ls->e);
-    if (val2->type != eInt) 
+    if (val2->type != eInt)
         fatalError("Second+ value for binary operation is not an int");
     j = val2->iVal;
     switch (op) {
@@ -132,17 +140,63 @@ getAnother:
     }
     i = k;
     if (ls->n != NULL) goto getAnother;
-    return (newIntExpr(k));   
+    return (newIntExpr(k));
+}
+
+expr *doLambda(exprs *ls) {
+    expr *op;
+    expr *val;
+    expr *param1, *param2, *dec;
+    char str[80]; //helper
+    if (ls == NULL)
+        fatalError("Lambda definition missing parameters");
+    //Get the function parameters
+    param1 = ls->e;
+    if (param1->type != eIdent)
+        fatalError("Only pass identifiers in function parameters");
+    strcpy(val->sVal,param1->sVal);
+getAnotherParam:
+    ls = ls->n;
+    param2 = ls->e;
+    if (param2->type != eIdent)
+        fatalError("Only pass identifiers in function parameters");
+    strcat(val->sVal, param2);
+    if(ls->n != NULL)
+      goto getAnotherParam;
+
+    //deal with definition
+    //the space will allow us to differentiate def from params in the future
+    strcat(val->sVal," ");
+    ls = ls->n;
+    op = ls->e;
+    if (op->type != eIdent)
+        fatalError("Function operator is not valid");
+    strcat(val->sVal, op->sVal);
+getAnotherDec:
+    ls = ls->n;
+    if (ls == NULL)
+        fatalError("Function declaration missing a value(s)");
+    dec = ls->e;
+    if (dec->type == eInt) {
+      sprintf(str, "%d", dec->iVal);
+      strcat(val->sVal, str);
+    }
+    else {
+      strcat(val->sVal, dec->sVal);
+    }
+    if (ls->n != NULL) goto getAnotherDec;
+
+    return(val); /* don't want main to print anything, so return NULL */
 }
 
 /*
  * Evaluate an Expression
- */ 
+ */
 expr *eval(expr *e) {
     expr   *op;
     exprs  *list;
     symbol *s;
-    
+
     switch (e->type) {
         case eString:
             /* Not needed in assignment 6 */
@@ -175,6 +229,9 @@ expr *eval(expr *e) {
                 return (doQuote(list));
             } else if (!strcasecmp (op->sVal,"list")) {
                 return (doList(list));
+            } else if (!strcasecmp (op->sVal,"lambda")) {
+                //We would hit this case for first class functions
+                return (doLambda(list));
             } else if (!strcmp (op->sVal,"+")) {
                 return (doBinaryOp(SUM,list));
             } else if (!strcmp (op->sVal,"-")) {
@@ -185,7 +242,7 @@ expr *eval(expr *e) {
                 return (doBinaryOp(DIV,list));
             } else {
                 fatalError("Unbound operator in function application");
-            }                
+            }
             break;
         default:
             break;
@@ -214,7 +271,7 @@ void exprPrint(expr *e) {
             break;
     }
 }
- 
+
 void listPrint(exprs *l) {
     if (l == NULL) return;
     exprPrint(l->e);
