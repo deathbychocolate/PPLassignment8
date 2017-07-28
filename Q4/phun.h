@@ -55,6 +55,24 @@ typedef struct symtabS {
     symbol *first;    /* ptr to first symbol */
 } symtab;
 
+/*
+* Types for super simple function definition table
+* - An element in list of functions
+*/
+typedef struct functionS {
+	char *name;
+	expr *params;
+	expr *data;
+	struct symbolS *next;   /* ptr to next node */
+} function;
+
+/* Function Table ADT - a linked list */
+typedef struct functiontabS {
+	int     length;   /* length */
+	symbol *first;    /* ptr to first symbol */
+} functiontable;
+
+
 /* ---------------------------- PROTOTYPES ---------------------------- */
 
 void fatalError (char *msg);
@@ -63,6 +81,9 @@ void returnChar (char c);
 
 symbol *lookup(char *name);
 symbol *bind(char *name, expr *val);
+
+function *functionLookup(char *name);
+function *functionBind(char *name, expr *params, expr *val);
 
 void printToken (token t);
 token scan ();
@@ -78,7 +99,8 @@ exprs *parseFileList (token t);
 exprs *parseExprList (token t);
 expr  *parseExpr (token t);
 
-expr *doLambda (exprs *ls);
+function *doLambda (exprs *ls);
+expr *evalLambda (function *f, exprs *ls);
 
 void listPrint(exprs *l);
 void exprPrint(expr *e);

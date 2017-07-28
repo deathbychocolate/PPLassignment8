@@ -22,6 +22,8 @@ int   line = 1;
 
 #if STAGE == 3 /* Evaluation - need a symbol table */
     symtab st;
+	functiontable ft;
+
 #endif
 
 /*
@@ -81,6 +83,30 @@ symbol *bind(char *name, expr *val) {
     st.first = s;
     st.length++;
     return(s);
+}
+
+function *functionLookup(char * name)
+{
+	function *func;
+	if (ft.length == 0) return NULL;
+	func = ft.first;
+	while (func != NULL) {
+		if (!strcmp(name, func->name)) return(func);
+		func = func->next;
+	}
+	return NULL;
+}
+
+function *functionBind(char * name, expr *params, expr * val)
+{
+	function *func = malloc(sizeof(function));
+	func->name = name;
+	func->data = val;
+	func->params = params;
+	func->next = ft.first;
+	ft.first = func;
+	ft.length++;
+	return(func);
 }
 
 /*

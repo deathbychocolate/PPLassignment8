@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <string.h>
 #include "phun.h"
 
 #define SUM  0
@@ -80,20 +81,18 @@ expr *doDefine(exprs *ls) {
     expr *name;
     expr *val;
     symbol *s;
+	function *f = NULL;
     if (ls == NULL)
         fatalError("Definition missing name and value");
     name = ls->e;
     if (name->type != eIdent)
         fatalError("Missing identifier in a definition");
+	if (ls->n->e->type == eExprList
+		&& !strcmp(ls->n->e->eVal->e->sVal, "lambda")) {
+		name = ls->n->e->eVal->e;
+		doLambda(ls);
+	}
     ls = ls->n;
-    if (!strcasecmp (ls->e->sVal,"lambda")){
-        //user is defining a function
-        //add function to sym tab and get out
-        ls = ls->n;
-        val = doLambda(ls); //val contains the function def
-        bind(name->sVal, val);
-        return(NULL);
-    }
     if (ls == NULL)
         fatalError("Definition missing a value");
     val = ls->e;
@@ -101,13 +100,85 @@ expr *doDefine(exprs *ls) {
         fatalError("Extra expressions in a definition");
     val = eval(val);
     s = lookup(name->sVal);
+	f = functionLookup(name->sVal);
     if (s != NULL) {
         s->data = val;
-    } else {
+    } else if(f!=NULL){
+		evalLambda(f, ls);
+	} else {
         bind(name->sVal,val);
     }
     return(NULL); /* don't want main to print anything, so return NULL */
 }
+
+
+
+function *doLambda(exprs *ls) {
+	function *f;
+
+	expr *params;
+	expr *data;
+	char *name;
+
+	name = ls->e->sVal;
+
+	ls = ls->n->e->eVal->n;
+
+	if (ls->e->eVal != NULL) {
+		params = ls->e;
+	}
+	else {
+		fatalError("no arguments provided");
+	}
+	if (ls->n != NULL) {
+		data = ls->n->e;
+	}
+	else {
+		fatalError("function body is empty");
+	}
+
+	f = functionBind(name, params, data);
+
+	return(f); /* don't want main to print anything, so return NULL */
+}
+
+expr *evalLambda(function * f, exprs *ls)
+{
+	exprs *paramsPointer = f->params->eVal;
+	symbol *s;
+	function *innerF;
+
+	while (paramsPointer != NULL) {
+		if (ls == NULL) {
+			fatalError("too few arguments");
+		}
+		if (ls->e->type == eInt || ls->e->type == eString) {
+			bind(paramsPointer->e->sVal,ls->e);
+		}
+		if (ls->e->type == eIdent) {
+			s = lookup(ls->e->sVal);
+			if (s != NULL) {
+				bind(paramsPointer->e->sVal,eval(ls->e));
+			}
+			else
+			{
+				innerF = functionLookup(ls->e->sVal);
+				if (innerF != NULL) {
+					bind(paramsPointer->e->sVal, evalLambda(innerF,ls));
+				}
+				else
+				{
+					fatalError("couldn't evaluate");
+				}
+			}
+		}
+		ls = ls->n;
+		paramsPointer = paramsPointer->n;
+	}
+	
+	return eval(f->data);
+}
+
 
 /*
  * Evaluate the arguments for binary+ operators and then apply the operation
@@ -143,52 +214,6 @@ getAnother:
     return (newIntExpr(k));
 }
 
-expr *doLambda(exprs *ls) {
-    expr *op;
-    expr *val;
-    expr *param1, *param2, *dec;
-    char str[80]; //helper
-    if (ls == NULL)
-        fatalError("Lambda definition missing parameters");
-    //Get the function parameters
-    param1 = ls->e;
-    if (param1->type != eIdent)
-        fatalError("Only pass identifiers in function parameters");
-    strcpy(val->sVal,param1->sVal);
-getAnotherParam:
-    ls = ls->n;
-    param2 = ls->e;
-    if (param2->type != eIdent)
-        fatalError("Only pass identifiers in function parameters");
-    strcat(val->sVal, param2);
-    if(ls->n != NULL)
-      goto getAnotherParam;
-
-    //deal with definition
-    //the space will allow us to differentiate def from params in the future
-    strcat(val->sVal," ");
-    ls = ls->n;
-    op = ls->e;
-    if (op->type != eIdent)
-        fatalError("Function operator is not valid");
-    strcat(val->sVal, op->sVal);
-getAnotherDec:
-    ls = ls->n;
-    if (ls == NULL)
-        fatalError("Function declaration missing a value(s)");
-    dec = ls->e;
-    if (dec->type == eInt) {
-      sprintf(str, "%d", dec->iVal);
-      strcat(val->sVal, str);
-    }
-    else {
-      strcat(val->sVal, dec->sVal);
-    }
-    if (ls->n != NULL) goto getAnotherDec;
-
-    return(val); /* don't want main to print anything, so return NULL */
-}
-
 /*
  * Evaluate an Expression
  */
@@ -196,6 +221,7 @@ expr *eval(expr *e) {
     expr   *op;
     exprs  *list;
     symbol *s;
+	function *f;
 
     switch (e->type) {
         case eString:
@@ -217,22 +243,24 @@ expr *eval(expr *e) {
             if (op->type != eIdent) {
                 fatalError("Invalid operator in function application");
             }
-            if (!strcasecmp (op->sVal,"define")) {
+            if (!strcmp (op->sVal,"define")) {
                 return (doDefine(list));
-            } else if (!strcasecmp (op->sVal,"car")) {
-                return (doCar(list));
-            } else if (!strcasecmp (op->sVal,"cdr")) {
+			}
+			else if (!strcmp(op->sVal, "lambda")) {
+				return NULL;
+			}
+			else if (!strcmp(op->sVal, "car")) {
+				return (doCar(list));
+			}
+			else if (!strcmp (op->sVal,"cdr")) {
                 return (doCdr(list));
-            } else if (!strcasecmp (op->sVal,"cons")) {
+            } else if (!strcmp (op->sVal,"cons")) {
                 return (doCons(list));
-            } else if (!strcasecmp (op->sVal, "quote")) {
+            } else if (!strcmp (op->sVal, "quote")) {
                 return (doQuote(list));
-            } else if (!strcasecmp (op->sVal,"list")) {
+            } else if (!strcmp (op->sVal,"list")) {
                 return (doList(list));
-            } else if (!strcasecmp (op->sVal,"lambda")) {
-                //We would hit this case for first class functions
-                return (doLambda(list));
-            } else if (!strcmp (op->sVal,"+")) {
+            }  else if (!strcmp (op->sVal,"+")) {
                 return (doBinaryOp(SUM,list));
             } else if (!strcmp (op->sVal,"-")) {
                 return (doBinaryOp(DIFF,list));
@@ -241,7 +269,13 @@ expr *eval(expr *e) {
             } else if (!strcmp (op->sVal,"/")) {
                 return (doBinaryOp(DIV,list));
             } else {
-                fatalError("Unbound operator in function application");
+				f = functionLookup(op->sVal);
+				if (f != NULL) {
+					evalLambda(f,list);
+				}
+				else {
+					fatalError("Unbound operator in function application");
+				}
             }
             break;
         default:
